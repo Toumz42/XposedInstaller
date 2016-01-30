@@ -1,5 +1,10 @@
 package de.robv.android.xposed.installer;
 
+import static android.content.Context.MODE_PRIVATE;
+import static de.robv.android.xposed.installer.XposedApp.WRITE_EXTERNAL_PERMISSION;
+import static de.robv.android.xposed.installer.util.XposedZip.Installer;
+import static de.robv.android.xposed.installer.util.XposedZip.Uninstaller;
+
 import android.Manifest;
 import android.annotation.TargetApi;
 import android.app.Activity;
@@ -40,9 +45,6 @@ import android.widget.Toast;
 
 import com.afollestad.materialdialogs.MaterialDialog;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -56,6 +58,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import de.robv.android.xposed.installer.util.AssetUtil;
 import de.robv.android.xposed.installer.util.DownloadsUtil;
 import de.robv.android.xposed.installer.util.NavUtil;
@@ -64,23 +69,18 @@ import de.robv.android.xposed.installer.util.RootUtil;
 import de.robv.android.xposed.installer.util.ThemeUtil;
 import de.robv.android.xposed.installer.util.XposedZip;
 
-import static android.content.Context.MODE_PRIVATE;
-import static de.robv.android.xposed.installer.XposedApp.WRITE_EXTERNAL_PERMISSION;
-import static de.robv.android.xposed.installer.util.XposedZip.Installer;
-import static de.robv.android.xposed.installer.util.XposedZip.Uninstaller;
-
 public class InstallerFragment extends Fragment
 		implements DownloadsUtil.DownloadFinishedCallback {
 	public static final String JAR_PATH = "/system/framework/XposedBridge.jar";
 	private static final int INSTALL_MODE_NORMAL = 0;
 	private static final int INSTALL_MODE_RECOVERY_AUTO = 1;
 	private static final int INSTALL_MODE_RECOVERY_MANUAL = 2;
-	private static String JSON_LINK = "https://raw.githubusercontent.com/DVDAndroid/XposedInstaller/material/app/xposed.json";
+	private static String JSON_LINK = "https://raw.githubusercontent.com/DVDAndroid/XposedInstaller/issue-25/app/xposed.json";
+	// TODO: change url
 	private static List<String> messages = new LinkedList<>();
 	private static ArrayList<Installer> installers;
 	private static ArrayList<Uninstaller> uninstallers;
 	private final LinkedList<String> mCompatibilityErrors = new LinkedList<>();
-	private String APP_PROCESS_NAME = null;
 	private RootUtil mRootUtil = new RootUtil();
 	private boolean mHadSegmentationFault = false;
 	private MaterialDialog.Builder dlgProgress;
@@ -96,9 +96,9 @@ public class InstallerFragment extends Fragment
 	private String newApkChangelog;
 	private CardView mUpdateView;
 	private Button mUpdateButton;
-	private TextView mInstallForbidden;
 	private ImageView mInfoUpdate;
 	private Button mClickedButton;
+	private String APP_PROCESS_NAME = null;
 
 	private static int extractIntPart(String str) {
 		int result = 0, length = str.length();
@@ -121,19 +121,6 @@ public class InstallerFragment extends Fragment
 		}
 	}
 
-	public static ArrayList<Installer> getInstallersBySdk(int sdk) {
-		ArrayList<Installer> list = new ArrayList<>();
-		for (Installer i : installers) {
-			if (i.sdk == sdk)
-				list.add(i);
-		}
-
-		if (list.size() == 0) {
-			list.add(new Installer());
-		}
-		return list;
-	}
-
 	/*
 	 * public static ArrayList<Installer> getInstallersBySdkAndArchitecture( int
 	 * sdk, String architecture) { ArrayList<Installer> list = new
@@ -147,6 +134,19 @@ public class InstallerFragment extends Fragment
 	 * for (Uninstaller u : uninstallers) { if
 	 * (u.architecture.equals(architecture)) list.add(u); } return list; }
 	 */
+
+	public static ArrayList<Installer> getInstallersBySdk(int sdk) {
+		ArrayList<Installer> list = new ArrayList<>();
+		for (Installer i : installers) {
+			if (i.sdk == sdk)
+				list.add(i);
+		}
+
+		if (list.size() == 0) {
+			list.add(new Installer());
+		}
+		return list;
+	}
 
 	@Override
 	public void onActivityCreated(Bundle savedInstanceState) {
@@ -182,8 +182,6 @@ public class InstallerFragment extends Fragment
 		mInfoInstaller = (ImageView) v.findViewById(R.id.infoInstaller);
 		mInfoUninstaller = (ImageView) v.findViewById(R.id.infoUninstaller);
 
-		mInstallForbidden = (TextView) v
-				.findViewById(R.id.installationForbidden);
 		mInfoUpdate = (ImageView) v.findViewById(R.id.infoUpdate);
 
 		String installedXposedVersion = XposedApp.getXposedProp()
@@ -296,9 +294,13 @@ public class InstallerFragment extends Fragment
 						Installer selectedInstaller = (Installer) mInstallersChooser
 								.getSelectedItem();
 
+						DownloadsUtil.MIME_TYPES type = Build.VERSION.SDK_INT <= 19
+								? DownloadsUtil.MIME_TYPES.NONE
+								: DownloadsUtil.MIME_TYPES.ZIP;
+
 						DownloadsUtil.add(getContext(), selectedInstaller.name,
 								selectedInstaller.link, InstallerFragment.this,
-								DownloadsUtil.MIME_TYPES.ZIP, true);
+								type, true);
 					}
 				});
 			}
@@ -673,6 +675,10 @@ public class InstallerFragment extends Fragment
 				INSTALL_MODE_NORMAL);
 		if (mode < INSTALL_MODE_NORMAL || mode > INSTALL_MODE_RECOVERY_MANUAL)
 			mode = INSTALL_MODE_NORMAL;
+
+		// forcing
+		if (Build.VERSION.SDK_INT <= 19)
+			mode = 0;
 		return mode;
 	}
 
@@ -837,20 +843,24 @@ public class InstallerFragment extends Fragment
 				getString(R.string.downloadZipOk, info.localFilename),
 				Toast.LENGTH_LONG).show();
 
-		if (getInstallMode() == INSTALL_MODE_RECOVERY_MANUAL)
-			return;
+		switch (getInstallMode()) {
+			case INSTALL_MODE_NORMAL:
+				new InstallXposed(info.localFilename).execute();
+				break;
+			case INSTALL_MODE_RECOVERY_AUTO:
+				areYouSure(R.string.install_warning,
+						new MaterialDialog.ButtonCallback() {
+							@Override
+							public void onPositive(MaterialDialog dialog) {
+								super.onPositive(dialog);
+								Toast.makeText(context, R.string.selectFile,
+										Toast.LENGTH_LONG).show();
 
-		areYouSure(R.string.install_warning,
-				new MaterialDialog.ButtonCallback() {
-					@Override
-					public void onPositive(MaterialDialog dialog) {
-						super.onPositive(dialog);
-						Toast.makeText(context, R.string.selectFile,
-								Toast.LENGTH_LONG).show();
-
-						performFileSearch();
-					}
-				});
+								performFileSearch();
+							}
+						});
+				break;
+		}
 	}
 
 	private abstract class AsyncClickListener implements View.OnClickListener {
@@ -960,22 +970,24 @@ public class InstallerFragment extends Fragment
 							architecture, sdk, version));
 				}
 
-				if (Build.VERSION.SDK_INT >= 21) {
-					for (int i = 0; i < uninstallerArray.length(); i++) {
-						JSONObject jsonObject = uninstallerArray
-								.getJSONObject(i);
+				for (int i = 0; i < uninstallerArray.length(); i++) {
+					JSONObject jsonObject = uninstallerArray.getJSONObject(i);
+					String link = jsonObject.getString("link");
+					String name = jsonObject.getString("name");
+					String architecture = jsonObject.getString("architecture");
+					String date = jsonObject.getString("date");
 
-						String link = jsonObject.getString("link");
-						String name = jsonObject.getString("name");
-						String architecture = jsonObject
-								.getString("architecture");
-						String date = jsonObject.getString("date");
-
-						uninstallers.add(new Uninstaller(link, name,
-								architecture, date));
+					if (Build.VERSION.SDK_INT >= 21) {
+						if (!architecture.equals("null")) {
+							uninstallers.add(new Uninstaller(link, name,
+									architecture, date));
+						}
+					} else {
+						if (architecture.equals("null")) {
+							uninstallers.add(
+									new Uninstaller(link, name, "N/A", date));
+						}
 					}
-				} else {
-					uninstallers.add(new Uninstaller());
 				}
 
 				newApkVersion = json.getJSONObject("apk").getString("version");
@@ -1007,17 +1019,6 @@ public class InstallerFragment extends Fragment
 			mInfoInstaller.setVisibility(i);
 			mInfoUninstaller.setVisibility(i);
 
-			if (Build.VERSION.SDK_INT < 21) {
-				btnInstall.setEnabled(false);
-				btnUninstall.setEnabled(false);
-				mInfoInstaller.setEnabled(false);
-				mInfoUninstaller.setEnabled(false);
-				mInstallersChooser.setEnabled(false);
-				mUninstallersChooser.setEnabled(false);
-
-				mInstallForbidden.setVisibility(View.VISIBLE);
-			}
-
 			try {
 
 				if (!result) {
@@ -1031,7 +1032,7 @@ public class InstallerFragment extends Fragment
 				if (arch.contains("64")) {
 					archPos = 1;
 				} else if (arch.contains("86")) {
-					archPos = 2;
+					archPos = Build.VERSION.SDK_INT >= 21 ? 2 : 1;
 				}
 
 				mInstallersChooser
@@ -1060,7 +1061,7 @@ public class InstallerFragment extends Fragment
 				if (newApkVersion == null)
 					return;
 
-				SharedPreferences prefs = null;
+				SharedPreferences prefs;
 				try {
 					prefs = getContext().getSharedPreferences(
 							getContext().getPackageName() + "_preferences",
@@ -1079,6 +1080,84 @@ public class InstallerFragment extends Fragment
 				}
 			} catch (NullPointerException ignored) {
 			}
+		}
+	}
+
+	private class InstallXposed extends AsyncTask<Void, Void, Boolean> {
+
+		private final String path;
+		List<String> messages = new LinkedList<>();
+
+		public InstallXposed(String localFilename) {
+			this.path = localFilename;
+		}
+
+		@Override
+		protected Boolean doInBackground(Void... params) {
+			if (!startShell())
+				return false;
+
+			messages.add(getString(R.string.file_mounting_writable, "/system"));
+			if (mRootUtil.executeWithBusybox("mount -o remount,rw /system",
+					messages) != 0) {
+				messages.add(getString(R.string.file_mount_writable_failed,
+						"/system"));
+				messages.add(getString(R.string.file_trying_to_continue));
+			}
+
+			if (new File("/system/bin/app_process.orig").exists()) {
+				messages.add(getString(R.string.file_backup_already_exists,
+						"/system/bin/app_process.orig"));
+			} else {
+				if (mRootUtil.executeWithBusybox(
+						"cp -a /system/bin/app_process /system/bin/app_process.orig",
+						messages) != 0) {
+					messages.add("");
+					messages.add(getString(R.string.file_backup_failed,
+							"/system/bin/app_process"));
+					return false;
+				} else {
+					messages.add(getString(R.string.file_backup_successful,
+							"/system/bin/app_process.orig"));
+				}
+
+				mRootUtil.executeWithBusybox("sync", messages);
+			}
+
+			messages.add(getString(R.string.file_copying, "app_process"));
+			if (mRootUtil
+					.executeWithBusybox(
+                            "cp -a " + new File(path).getAbsolutePath()
+                                    + " /system/bin/app_process",
+                            messages) != 0) {
+				messages.add("");
+				messages.add(getString(R.string.file_copy_failed, "app_process",
+						"/system/bin"));
+				return false;
+			}
+			if (mRootUtil.executeWithBusybox(
+					"chmod 755 /system/bin/app_process", messages) != 0) {
+				messages.add("");
+				messages.add(getString(R.string.file_set_perms_failed,
+						"/system/bin/app_process"));
+				return false;
+			}
+			if (mRootUtil.executeWithBusybox(
+					"chown root:shell /system/bin/app_process",
+					messages) != 0) {
+				messages.add("");
+				messages.add(getString(R.string.file_set_owner_failed,
+						"/system/bin/app_process"));
+				return false;
+			}
+			return true;
+		}
+
+		@Override
+		protected void onPostExecute(Boolean result) {
+			super.onPostExecute(result);
+
+			getActivity().recreate();
 		}
 	}
 }

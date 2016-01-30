@@ -152,6 +152,9 @@ public class SettingsActivity extends XposedBaseActivity
 						}
 					});
 
+			findPreference("install_mode")
+					.setEnabled(Build.VERSION.SDK_INT >= 21);
+
 			CheckBoxPreference prefDisableResources = (CheckBoxPreference) findPreference(
 					"disable_resources");
 			prefDisableResources.setChecked(mDisableResourcesFlag.exists());

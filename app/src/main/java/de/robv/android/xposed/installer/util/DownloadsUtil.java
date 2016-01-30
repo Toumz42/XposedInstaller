@@ -368,6 +368,15 @@ public class DownloadsUtil {
 			public String getExtension() {
 				return ".zip";
 			}
+		},
+		NONE {
+			public String toString() {
+				return "";
+			}
+
+			public String getExtension() {
+				return "";
+			}
 		};
 
 		public String getExtension() {

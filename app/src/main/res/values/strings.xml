@@ -258,7 +258,7 @@
     <string name="downloadUninstaller">Download uninstaller</string>
     <string name="selectFile">Select downloaded file</string>
     <string name="xposedZipNotFound">Zip not found, probably a new version released.</string>
-    <string name="warningArchitecture">HAVE YOU CHOSEN RIGHT XPOSED ZIP ARCHITECTURE?\nWrong installer zip can damage your phone!</string>
+    <string name="warningArchitecture">HAVE YOU CHOSEN RIGHT XPOSED ARCHITECTURE?\nWrong installer zip can damage your phone!</string>
     <string name="help">Help</string>
     <string name="helpChoose">
         How to choose correct zip file?\n
