@@ -17,7 +17,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
+import android.os.FileUtils;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
@@ -47,7 +47,10 @@ import com.afollestad.materialdialogs.MaterialDialog;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigInteger;
 import java.net.HttpURLConnection;
@@ -71,7 +74,9 @@ import de.robv.android.xposed.installer.util.XposedZip;
 
 public class InstallerFragment extends Fragment
 		implements DownloadsUtil.DownloadFinishedCallback {
-	public static final String JAR_PATH = "/system/framework/XposedBridge.jar";
+	private static final String JAR_PATH = XposedApp.BASE_DIR
+			+ "bin/XposedBridge.jar";
+	private static final String JAR_PATH_NEWVERSION = JAR_PATH + ".newversion";
 	private static final int INSTALL_MODE_NORMAL = 0;
 	private static final int INSTALL_MODE_RECOVERY_AUTO = 1;
 	private static final int INSTALL_MODE_RECOVERY_MANUAL = 2;
@@ -120,20 +125,6 @@ public class InstallerFragment extends Fragment
 			return false;
 		}
 	}
-
-	/*
-	 * public static ArrayList<Installer> getInstallersBySdkAndArchitecture( int
-	 * sdk, String architecture) { ArrayList<Installer> list = new
-	 * ArrayList<>(); ArrayList<Installer> list2 = new ArrayList<>(); for
-	 * (Installer i : installers) { if (i.sdk == sdk) list.add(i); } for
-	 * (Installer i : list) { if (i.architecture.equals(architecture))
-	 * list2.add(i); } return list2; }
-	 *
-	 * public static ArrayList<Uninstaller> getUninstallersByArchitecture(
-	 * String architecture) { ArrayList<Uninstaller> list = new ArrayList<>();
-	 * for (Uninstaller u : uninstallers) { if
-	 * (u.architecture.equals(architecture)) list.add(u); } return list; }
-	 */
 
 	public static ArrayList<Installer> getInstallersBySdk(int sdk) {
 		ArrayList<Installer> list = new ArrayList<>();
@@ -332,33 +323,6 @@ public class InstallerFragment extends Fragment
 			}
 		});
 
-		mUpdateButton.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				mClickedButton = mUpdateButton;
-				if (checkPermissions())
-					return;
-
-				DownloadsUtil.add(getContext(), "XposedInstaller_by_dvdandroid",
-						newApkLink,
-						new DownloadsUtil.DownloadFinishedCallback() {
-					@Override
-					public void onDownloadFinished(Context context,
-							DownloadsUtil.DownloadInfo info) {
-						Intent intent = new Intent(Intent.ACTION_VIEW);
-						intent.setDataAndType(
-								Uri.fromFile(new File(Environment
-										.getExternalStorageDirectory()
-										.getAbsolutePath()
-										+ "/XposedInstaller/XposedInstaller_by_dvdandroid.apk")),
-								DownloadsUtil.MIME_TYPE_APK);
-						intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-						context.startActivity(intent);
-					}
-				}, DownloadsUtil.MIME_TYPES.APK, true);
-			}
-		});
-
 		return v;
 	}
 
@@ -465,7 +429,7 @@ public class InstallerFragment extends Fragment
 	public void onRequestPermissionsResult(int requestCode,
 			@NonNull String[] permissions, @NonNull int[] grantResults) {
 		super.onRequestPermissionsResult(requestCode, permissions,
-				grantResults);
+                grantResults);
 		if (requestCode == WRITE_EXTERNAL_PERMISSION) {
 			if (grantResults.length == 1
 					&& grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -695,7 +659,7 @@ public class InstallerFragment extends Fragment
 		throw new IllegalStateException("unknown install mode " + installMode);
 	}
 
-	private boolean prepareAutoFlash(List<String> messages, String file) {
+	private boolean prepareAutoFlash(List<String> messages, File file) {
 		if (mRootUtil.execute("ls /cache/recovery", null) != 0) {
 			messages.add(getString(R.string.file_creating_directory,
 					"/cache/recovery"));
@@ -709,7 +673,16 @@ public class InstallerFragment extends Fragment
 		}
 
 		messages.add(getString(R.string.file_copying, file));
-		File tempFile = AssetUtil.writeAssetToCacheFile(file, 00644);
+		File tempFile = null;
+		try {
+			tempFile = copy(file,
+					new File(XposedApp.getInstance().getCacheDir(),
+							file.getName()),
+					00644);
+		} catch (IOException e) {
+			Toast.makeText(getContext(), e.toString(), Toast.LENGTH_LONG)
+					.show();
+		}
 		if (tempFile == null) {
 			messages.add("");
 			messages.add(getString(R.string.file_extract_failed, file));
@@ -740,14 +713,8 @@ public class InstallerFragment extends Fragment
 		return true;
 	}
 
-	private boolean prepareManualFlash(List<String> messages, String file) {
+	private boolean prepareManualFlash(List<String> messages, File file) {
 		messages.add(getString(R.string.file_copying, file));
-		if (AssetUtil.writeAssetToSdcardFile(file, 00644) == null) {
-			messages.add("");
-			messages.add(getString(R.string.file_extract_failed, file));
-			return false;
-		}
-
 		return true;
 	}
 
@@ -756,13 +723,13 @@ public class InstallerFragment extends Fragment
 		messages.add("");
 		messages.add(getString(R.string.reboot_confirmation));
 		showConfirmDialog(TextUtils.join("\n", messages).trim(),
-				new MaterialDialog.ButtonCallback() {
-					@Override
-					public void onPositive(MaterialDialog dialog) {
-						super.onPositive(dialog);
-						reboot(null);
-					}
-				});
+                new MaterialDialog.ButtonCallback() {
+                    @Override
+                    public void onPositive(MaterialDialog dialog) {
+                        super.onPositive(dialog);
+                        reboot(null);
+                    }
+                });
 	}
 
 	private void offerRebootToRecovery(List<String> messages, final String file,
@@ -843,24 +810,24 @@ public class InstallerFragment extends Fragment
 				getString(R.string.downloadZipOk, info.localFilename),
 				Toast.LENGTH_LONG).show();
 
-		switch (getInstallMode()) {
-			case INSTALL_MODE_NORMAL:
-				new InstallXposed(info.localFilename).execute();
-				break;
-			case INSTALL_MODE_RECOVERY_AUTO:
-				areYouSure(R.string.install_warning,
-						new MaterialDialog.ButtonCallback() {
-							@Override
-							public void onPositive(MaterialDialog dialog) {
-								super.onPositive(dialog);
-								Toast.makeText(context, R.string.selectFile,
-										Toast.LENGTH_LONG).show();
+		new InstallXposed(info.localFilename).execute();
 
-								performFileSearch();
-							}
-						});
-				break;
+	}
+
+	public File copy(File src, File dst, int mode) throws IOException {
+		InputStream in = new FileInputStream(src);
+		FileOutputStream out = new FileOutputStream(dst);
+
+		byte[] buffer = new byte[1024];
+		int len;
+		while ((len = in.read(buffer)) > 0) {
+			out.write(buffer, 0, len);
 		}
+		in.close();
+		out.close();
+
+		FileUtils.setPermissions(dst.getAbsolutePath(), mode, -1, -1);
+		return dst;
 	}
 
 	private abstract class AsyncClickListener implements View.OnClickListener {
@@ -1037,7 +1004,7 @@ public class InstallerFragment extends Fragment
 
 				mInstallersChooser
 						.setAdapter(new XposedZip.MyAdapter<>(getContext(),
-								getInstallersBySdk(Build.VERSION.SDK_INT)));
+                                getInstallersBySdk(Build.VERSION.SDK_INT)));
 				mInstallersChooser.setSelection(archPos);
 
 				mUninstallersChooser.setAdapter(
@@ -1085,70 +1052,143 @@ public class InstallerFragment extends Fragment
 
 	private class InstallXposed extends AsyncTask<Void, Void, Boolean> {
 
-		private final String path;
+		private final File path;
 		List<String> messages = new LinkedList<>();
 
 		public InstallXposed(String localFilename) {
-			this.path = localFilename;
+			this.path = new File(localFilename);
 		}
 
 		@Override
 		protected Boolean doInBackground(Void... params) {
+			final int installMode = getInstallMode();
+
 			if (!startShell())
 				return false;
 
-			messages.add(getString(R.string.file_mounting_writable, "/system"));
-			if (mRootUtil.executeWithBusybox("mount -o remount,rw /system",
-					messages) != 0) {
-				messages.add(getString(R.string.file_mount_writable_failed,
-						"/system"));
-				messages.add(getString(R.string.file_trying_to_continue));
-			}
+			try {
 
-			if (new File("/system/bin/app_process.orig").exists()) {
-				messages.add(getString(R.string.file_backup_already_exists,
-						"/system/bin/app_process.orig"));
-			} else {
-				if (mRootUtil.executeWithBusybox(
-						"cp -a /system/bin/app_process /system/bin/app_process.orig",
-						messages) != 0) {
-					messages.add("");
-					messages.add(getString(R.string.file_backup_failed,
-							"/system/bin/app_process"));
-					return false;
-				} else {
-					messages.add(getString(R.string.file_backup_successful,
-							"/system/bin/app_process.orig"));
+				if (Build.VERSION.SDK_INT <= 19) {
+					File appProcessFile = copy(path,
+							new File(XposedApp.BASE_DIR + "bin/app_process"),
+							00700);
+					if (appProcessFile == null) {
+						showAlert(getString(R.string.file_extract_failed,
+								"app_process"));
+						return false;
+					}
+				}
+
+				if (installMode == INSTALL_MODE_NORMAL) {
+					// Normal installation
+					messages.add(getString(R.string.file_mounting_writable,
+							"/system"));
+					if (mRootUtil.executeWithBusybox(
+							"mount -o remount,rw /system", messages) != 0) {
+						messages.add(
+								getString(R.string.file_mount_writable_failed,
+										"/system"));
+						messages.add(
+								getString(R.string.file_trying_to_continue));
+					}
+
+					if (new File("/system/bin/app_process.orig").exists()) {
+						messages.add(
+								getString(R.string.file_backup_already_exists,
+										"/system/bin/app_process.orig"));
+					} else {
+						if (mRootUtil.executeWithBusybox(
+								"cp -a /system/bin/app_process /system/bin/app_process.orig",
+								messages) != 0) {
+							messages.add("");
+							messages.add(getString(R.string.file_backup_failed,
+									"/system/bin/app_process"));
+							return false;
+						} else {
+							messages.add(
+									getString(R.string.file_backup_successful,
+											"/system/bin/app_process.orig"));
+						}
+
+						mRootUtil.executeWithBusybox("sync", messages);
+					}
+
+					messages.add(
+							getString(R.string.file_copying, "app_process"));
+					if (mRootUtil.executeWithBusybox(
+							"cp -a " + path.getAbsolutePath()
+									+ " /system/bin/app_process",
+							messages) != 0) {
+						messages.add("");
+						messages.add(getString(R.string.file_copy_failed,
+								"app_process", "/system/bin"));
+						return false;
+					}
+					if (mRootUtil.executeWithBusybox(
+							"chmod 755 /system/bin/app_process",
+							messages) != 0) {
+						messages.add("");
+						messages.add(getString(R.string.file_set_perms_failed,
+								"/system/bin/app_process"));
+						return false;
+					}
+					if (mRootUtil.executeWithBusybox(
+							"chown root:shell /system/bin/app_process",
+							messages) != 0) {
+						messages.add("");
+						messages.add(getString(R.string.file_set_owner_failed,
+								"/system/bin/app_process"));
+						return false;
+					}
+
+				} else if (installMode == INSTALL_MODE_RECOVERY_AUTO) {
+					if (!prepareAutoFlash(messages, path))
+						return false;
+				} else if (installMode == INSTALL_MODE_RECOVERY_MANUAL) {
+					if (!prepareManualFlash(messages, path))
+						return false;
+				}
+
+				File blocker = new File(XposedApp.BASE_DIR + "conf/disabled");
+				if (blocker.exists()) {
+					messages.add(getString(R.string.file_removing,
+							blocker.getAbsolutePath()));
+					if (mRootUtil.executeWithBusybox(
+							"rm " + blocker.getAbsolutePath(), messages) != 0) {
+						messages.add("");
+						messages.add(getString(R.string.file_remove_failed,
+								blocker.getAbsolutePath()));
+						return false;
+					}
+				}
+
+				if (Build.VERSION.SDK_INT <= 19) {
+					messages.add(getString(R.string.file_copying,
+							"XposedBridge.jar"));
+					File jarFile = AssetUtil.writeAssetToFile(
+							"XposedBridge.jar", new File(JAR_PATH_NEWVERSION),
+							00644);
+					if (jarFile == null) {
+						messages.add("");
+						messages.add(getString(R.string.file_extract_failed,
+								"XposedBridge.jar"));
+						return false;
+					}
 				}
 
 				mRootUtil.executeWithBusybox("sync", messages);
-			}
 
-			messages.add(getString(R.string.file_copying, "app_process"));
-			if (mRootUtil
-					.executeWithBusybox(
-                            "cp -a " + new File(path).getAbsolutePath()
-                                    + " /system/bin/app_process",
-                            messages) != 0) {
 				messages.add("");
-				messages.add(getString(R.string.file_copy_failed, "app_process",
-						"/system/bin"));
-				return false;
-			}
-			if (mRootUtil.executeWithBusybox(
-					"chmod 755 /system/bin/app_process", messages) != 0) {
-				messages.add("");
-				messages.add(getString(R.string.file_set_perms_failed,
-						"/system/bin/app_process"));
-				return false;
-			}
-			if (mRootUtil.executeWithBusybox(
-					"chown root:shell /system/bin/app_process",
-					messages) != 0) {
-				messages.add("");
-				messages.add(getString(R.string.file_set_owner_failed,
-						"/system/bin/app_process"));
-				return false;
+				if (installMode == INSTALL_MODE_NORMAL)
+					offerReboot(messages);
+				else
+					offerRebootToRecovery(messages, path.getName(),
+							installMode);
+
+				return true;
+			} catch (IOException e) {
+				Toast.makeText(getContext(), e.toString(), Toast.LENGTH_LONG)
+						.show();
 			}
 			return true;
 		}
@@ -1156,6 +1196,8 @@ public class InstallerFragment extends Fragment
 		@Override
 		protected void onPostExecute(Boolean result) {
 			super.onPostExecute(result);
+
+			AssetUtil.removeBusybox();
 
 			getActivity().recreate();
 		}
