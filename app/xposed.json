@@ -64,72 +64,72 @@
       "architecture": "x86"
     },
     {
-      "name": "app_process_xposed",
+      "name": "app_process_xposed_arm",
       "version": "58",
-      "link": "https://github.com/rovo89/XposedInstaller/blob/master/assets/arm/app_process_xposed_sdk15?raw=true",
+      "link": "https://github.com/rovo89/XposedInstaller/blob/4cd1038e1ee3f0774f9d64fe1437b88f193ca2d0/assets/arm/app_process_xposed_sdk15?raw=true",
       "sdk": 15,
       "architecture": "arm"
     },
     {
-      "name": "app_process_xposed",
+      "name": "app_process_xposed_arm",
       "version": "58",
-      "link": "https://github.com/rovo89/XposedInstaller/blob/master/assets/arm/app_process_xposed_sdk16?raw=true",
+      "link": "https://github.com/rovo89/XposedInstaller/blob/4cd1038e1ee3f0774f9d64fe1437b88f193ca2d0/assets/arm/app_process_xposed_sdk16?raw=true",
       "sdk": 16,
       "architecture": "arm"
     },
     {
-      "name": "app_process_xposed",
+      "name": "app_process_xposed_arm",
       "version": "58",
-      "link": "https://github.com/rovo89/XposedInstaller/blob/master/assets/arm/app_process_xposed_sdk16?raw=true",
+      "link": "https://github.com/rovo89/XposedInstaller/blob/4cd1038e1ee3f0774f9d64fe1437b88f193ca2d0/assets/arm/app_process_xposed_sdk16?raw=true",
       "sdk": 17,
       "architecture": "arm"
     },
     {
-      "name": "app_process_xposed",
+      "name": "app_process_xposed_arm",
       "version": "58",
-      "link": "https://github.com/rovo89/XposedInstaller/blob/master/assets/arm/app_process_xposed_sdk16?raw=true",
+      "link": "https://github.com/rovo89/XposedInstaller/blob/4cd1038e1ee3f0774f9d64fe1437b88f193ca2d0/assets/arm/app_process_xposed_sdk16?raw=true",
       "sdk": 18,
       "architecture": "arm"
     },
     {
-      "name": "app_process_xposed",
+      "name": "app_process_xposed_arm",
       "version": "58",
-      "link": "https://github.com/rovo89/XposedInstaller/blob/master/assets/arm/app_process_xposed_sdk16?raw=true",
+      "link": "https://github.com/rovo89/XposedInstaller/blob/4cd1038e1ee3f0774f9d64fe1437b88f193ca2d0/assets/arm/app_process_xposed_sdk16?raw=true",
       "sdk": 19,
       "architecture": "arm"
     },
     {
-      "name": "app_process_xposed",
+      "name": "app_process_xposed_x86",
       "version": "58",
-      "link": "https://github.com/rovo89/XposedInstaller/blob/master/assets/x86/app_process_xposed_sdk15?raw=true",
+      "link": "https://github.com/rovo89/XposedInstaller/blob/4cd1038e1ee3f0774f9d64fe1437b88f193ca2d0/assets/x86/app_process_xposed_sdk15?raw=true",
       "sdk": 15,
       "architecture": "x86"
     },
     {
-      "name": "app_process_xposed",
+      "name": "app_process_xposed_x86",
       "version": "58",
-      "link": "https://github.com/rovo89/XposedInstaller/blob/master/assets/x86/app_process_xposed_sdk16?raw=true",
+      "link": "https://github.com/rovo89/XposedInstaller/blob/4cd1038e1ee3f0774f9d64fe1437b88f193ca2d0/assets/x86/app_process_xposed_sdk16?raw=true",
       "sdk": 16,
       "architecture": "x86"
     },
     {
-      "name": "app_process_xposed",
+      "name": "app_process_xposed_x86",
       "version": "58",
-      "link": "https://github.com/rovo89/XposedInstaller/blob/master/assets/x86/app_process_xposed_sdk16?raw=true",
+      "link": "https://github.com/rovo89/XposedInstaller/blob/4cd1038e1ee3f0774f9d64fe1437b88f193ca2d0/assets/x86/app_process_xposed_sdk16?raw=true",
       "sdk": 17,
       "architecture": "x86"
     },
     {
-      "name": "app_process_xposed",
+      "name": "app_process_xposed_x86",
       "version": "58",
-      "link": "https://github.com/rovo89/XposedInstaller/blob/master/assets/x86/app_process_xposed_sdk16?raw=true",
+      "link": "https://github.com/rovo89/XposedInstaller/blob/4cd1038e1ee3f0774f9d64fe1437b88f193ca2d0/assets/x86/app_process_xposed_sdk16?raw=true",
       "sdk": 18,
       "architecture": "x86"
     },
     {
-      "name": "app_process_xposed",
+      "name": "app_process_xposed_x86",
       "version": "58",
-      "link": "https://github.com/rovo89/XposedInstaller/blob/master/assets/x86/app_process_xposed_sdk16?raw=true",
+      "link": "https://github.com/rovo89/XposedInstaller/blob/4cd1038e1ee3f0774f9d64fe1437b88f193ca2d0/assets/x86/app_process_xposed_sdk16?raw=true",
       "sdk": 19,
       "architecture": "x86"
     }
